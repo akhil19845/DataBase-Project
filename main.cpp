@@ -62,18 +62,20 @@ struct Exact_Repair
 };
 
 // This function calculates the median of the time intervals
-long calculate_median(std::vector<long> t)
-{
-    sort(t.begin(),t.end());
-    int len_t = t.size();
-    long med;
+long calculate_median(const std::vector<long>& t) {
+    std::vector<long> sorted_t = t; 
+    std::sort(sorted_t.begin(), sorted_t.end());
 
-    if (len_t % 2 != 0)
-    {
-        med = t[(int)(len_t/2)];
+    const int len_t = sorted_t.size();
+    long median;
+
+    if (len_t % 2 != 0) {
+        median = sorted_t[len_t / 2];
+    } else {
+        median = (sorted_t[len_t / 2 - 1] + sorted_t[len_t / 2]) / 2.0;
     }
-    med = (t[(int)(len_t-1)/2] + t[(int)(len_t/2)]) / 2.0;
-    return med;
+
+    return median;
 }
 
 //This function checks whether the value is present in the array
@@ -95,16 +97,17 @@ bool verify_interval_bound(long interval_t, long min_cost, std::vector<long> int
 }
 
 //This function verifies the boundary condition with deleted points
-bool verify_st_bound(int points_deleted, std::vector<long> interval_list, long min_cost, long lmd_d, long interval_t)
-{
+bool verify_st_bound(int points_deleted, std::vector<long> interval_list, long min_cost, long lmd_d, long interval_t) {
     long cost = points_deleted * lmd_d;
-    for(int i=points_deleted; i < interval_list.size(); i++)
-    {
-        cost += abs(interval_t - interval_list[i]);
+    int i = points_deleted;
+
+    while (i < interval_list.size()) {
+        cost += std::abs(interval_t - interval_list[i]);
+        ++i;
     }
+
     return (cost < min_cost);
 }
-
 //This function is used to retrieve the path(Match) from match search
 MatchResult trace_back(std::vector<std::vector<long>>& operation, const std::vector<long>& time, long s_0, long eps_t, long best_value ) {
     int n = time.size();
@@ -130,10 +133,10 @@ MatchResult trace_back(std::vector<std::vector<long>>& operation, const std::vec
 }
 
 
-//This function is D.P based match search to get optimal path Match, minimum cost and  length of target sequence
+//This function is D.P based match search to get optimal path Match, minimum cost and  best length of target sequence
 MatchSearch match_searching(std::vector<long> time, long eps_t, long s_0, long lmd_a, long lmd_d) {
     int n = time.size();
-    std::vector<std::vector<long>> dp(n + 1, std::vector<long>());
+    std::vector<std::vector<long>> dp(n + 1, std::vector<long>()); 
     std::vector<std::vector<long>> op(n + 1, std::vector<long>());
 
     dp[0].push_back(0);
@@ -147,39 +150,41 @@ MatchSearch match_searching(std::vector<long> time, long eps_t, long s_0, long l
     float optimal_length = 10e8;
     float m_upper_bound = 10e8;
     float minimum_cost = 10e8;
-    int m = 1;
+    int m_counter = 1;
 
-    while (m <= m_upper_bound) {
-        dp[0].push_back(m * lmd_a);
-        op[0].push_back(1);
 
-        for (int i = 1; i <= n; ++i) {
-            long s_m = s_0 + (m - 1) * eps_t;
-            long move_res = dp[i - 1][m - 1] + abs(time[i - 1] - s_m);
-            long add_res = dp[i][m - 1] + lmd_a;
-            long del_res = dp[i - 1][m] + lmd_d;
+    while (m_counter <= m_upper_bound) {
+    const long s_m = s_0 + (m_counter - 1) * eps_t;
 
-            if (add_res <= move_res && add_res <= del_res) {
-                dp[i].push_back(add_res);
-                op[i].push_back(1);
-            } else if (move_res <= add_res && move_res <= del_res) {
-                dp[i].push_back(move_res);
-                op[i].push_back(0);
-            } else {
-                dp[i].push_back(del_res);
-                op[i].push_back(2);
-            }
+    dp[0].emplace_back(m_counter * lmd_a);
+    op[0].emplace_back(1);
+
+    for (int i = 1; i <= n; ++i) {
+        const long diff_time_s_m = std::abs(time[i - 1] - s_m);
+        const long add_res = dp[i][m_counter - 1] + lmd_a;
+        const long move_res = dp[i - 1][m_counter - 1] + std::abs(time[i - 1] - s_m);
+        const long del_res = dp[i - 1][m_counter] + lmd_d;
+
+        const long min_cost = std::min({add_res, move_res, del_res});
+        dp[i].emplace_back(min_cost);
+
+        if (min_cost == add_res) {
+        op[i].emplace_back(1);
+        } else if (min_cost == move_res) {
+         op[i].emplace_back(0);
+        } else {
+        op[i].emplace_back(2);
         }
-
-        if (dp[n][m] < minimum_cost) {
-            minimum_cost = dp[n][m];
-            optimal_length = m;
-            m_upper_bound = floor(minimum_cost / lmd_a) + n;
-        }
-
-        m += 1;
+    }
+    const long current_cost = dp[n][m_counter];
+    if (current_cost < minimum_cost) {
+        optimal_length = m_counter;
+        minimum_cost = current_cost;
+        m_upper_bound = floor(minimum_cost / lmd_a) + n;
     }
 
+    ++m_counter;
+}
     auto Match = trace_back(op, time, s_0, eps_t, optimal_length);
     return {Match.Match, minimum_cost, optimal_length};
 }
@@ -198,7 +203,9 @@ Exact_Repair exact_repair(std::vector<long> t, long lmd_a, long lmd_d, int inter
 
     for (int i = 1; i < n - 1; i++)
     {
-        interval_list.push_back(t[i] - t[i - 1]);
+        int timestamp_diff = t[i] - t[i-1];
+        interval_list.push_back(timestamp_diff);
+        i += 1;
     }
     long interval_md = calculate_median(interval_list);
     long interval_t = round_to_granularity(interval_md, interval_granularity);
@@ -295,19 +302,22 @@ Exact_Repair exact_repair(std::vector<long> t, long lmd_a, long lmd_d, int inter
         interval_t_traverse_range.pop_back();
     }
     Exact_Repair exact_rep;
-    exact_rep.min_interval_t = min_interval_t;
     exact_rep.min_starting_point = min_starting_point;
     exact_rep.optimal_length = optimal_length;
+    exact_rep.min_interval_t = min_interval_t;
     return exact_rep;
 }
 
-// This function is used to 
+
 long calculate_custom_interval(std::vector<long> timestamps, long interval_granularity)
 {
     std::vector<long> time_diff_list;
-    for (int i = 1; i < timestamps.size(); i++)
-    {
+    int i=1;
+    while(i < timestamps.size()){
+    //for (int i = 1; i < timestamps.size(); i++)
+   // {
         time_diff_list.push_back((long)(timestamps[i] - timestamps[i - 1]));
+        i++;
     }
     
     long median_time_diff = calculate_median(time_diff_list);
@@ -316,7 +326,6 @@ long calculate_custom_interval(std::vector<long> timestamps, long interval_granu
     return custom_interval;
 }
 
-//
 StartPointApproximation start_point_approximation(std::vector<long> timestamps, long lmd_a, long lmd_d, long interval_granularity)
 {
     long starting_point = timestamps[0];
@@ -325,65 +334,66 @@ StartPointApproximation start_point_approximation(std::vector<long> timestamps, 
     std::vector<std::vector<long>> dp_matrix;
     std::vector<std::vector<long>> op_matrix;
     
+   
+
     for (int i = 0; i < n + 1; i++)
     {
         dp_matrix.push_back(std::vector<long>());
         op_matrix.push_back(std::vector<long>());
     }
-    
     dp_matrix[0].push_back(0);
     op_matrix[0].push_back(0);
     
-    for (int i = 1; i < n + 1; i++)
-    {
+
+    int i=1;
+    while(i < n+1){
         dp_matrix[i].push_back(i * lmd_d);
         op_matrix[i].push_back(2);
+        i++;
     }
-    
     float optimal_length = 10e8;
     float upper_bound_m = 10e8;
     float minimum_cost = 10e8;
     int m = 1;
     
-    while(m <= upper_bound_m)
-    {
-        dp_matrix[0].push_back(m * lmd_a);
-        op_matrix[0].push_back(1);
-        
-        for (int i = 1; i < n+ 1; i++)
-        {
-            long current_point, move_result, add_result, delete_result;
-            current_point = starting_point + (m - 1) * interval_t;
-            move_result = dp_matrix[i - 1][m - 1] + abs(timestamps[i - 1] - current_point);
-            add_result = dp_matrix[i][m - 1] + lmd_a;
-            delete_result = dp_matrix[i - 1][m] + lmd_d;
-            
-            if (move_result <= add_result && move_result <= delete_result)
-            {
-                dp_matrix[i].push_back(move_result);
-                op_matrix[i].push_back(0);
-            }
-            else if (add_result <= move_result && add_result <= delete_result)
-            {
-                dp_matrix[i].push_back(add_result);
-                op_matrix[i].push_back(1);
-            }
-            else
-            {
-                dp_matrix[i].push_back(delete_result);
-                op_matrix[i].push_back(2);
-            }
+    while (m <= upper_bound_m) {
+    dp_matrix[0].push_back(m * lmd_a);
+    op_matrix[0].push_back(1);
+
+    for (int i = 1; i < n + 1; i++) {
+        long current_point = starting_point + (m - 1) * interval_t;
+        long move_result = dp_matrix[i - 1][m - 1] + std::abs(timestamps[i - 1] - current_point);
+        long add_result = dp_matrix[i][m - 1] + lmd_a;
+        long delete_result = dp_matrix[i - 1][m] + lmd_d;
+
+        int opCode;
+        long minResult = std::min({move_result, add_result, delete_result});
+
+        switch (minResult) {
+            case 0:
+                opCode = 0;
+                break;
+            case 1:
+                opCode = 1;
+                break;
+            case 2:
+                opCode = 2;
+                break;
         }
-        
-        if (dp_matrix[n][m] < minimum_cost)
-        {
-            minimum_cost = dp_matrix[n][m];
-            optimal_length = m;
-            upper_bound_m = floor(minimum_cost / lmd_a) + n;
-        }
-        
-        m += 1;
+
+        dp_matrix[i].push_back((op_matrix[i].emplace_back(opCode), minResult));
     }
+
+    long dpNnM = dp_matrix[n][m];
+    if (dpNnM < minimum_cost) {
+        minimum_cost = dpNnM;
+        optimal_length = m;
+        upper_bound_m = std::floor(minimum_cost / lmd_a) + n;
+    }
+
+    m += 1;
+}
+    
     
     struct StartPointApproximation start_point_approx;
     start_point_approx.minimum_cost = minimum_cost;
@@ -394,112 +404,92 @@ StartPointApproximation start_point_approximation(std::vector<long> timestamps, 
     return start_point_approx;
 }
 
-//
 MedianApproximation median_approximation(std::vector<long> timestamps, long lmd_a, long lmd_d, long interval_granularity) // To find the median of the given data
 {
     int n = timestamps.size();
     long interval_t = calculate_custom_interval(timestamps, interval_granularity);
     int n_md = floor(n / 2);
     long s_md = calculate_median(timestamps);
-    std::vector<std::vector<long>> dp_l;
-    std::vector<std::vector<long>> dp_r;
-    std::vector<std::vector<long>> op_l;
-    std::vector<std::vector<long>> op_r;
-    for (int i = 0; i < n_md + 1; i++)
-    {
-        dp_l.push_back(std::vector<long>());
-        op_l.push_back(std::vector<long>());
-        dp_r.push_back(std::vector<long>());
-        op_r.push_back(std::vector<long>());
+    std::vector<std::vector<long>> leftdyp;
+    std::vector<std::vector<long>> rightdyp;
+    std::vector<std::vector<long>> leftopr;
+    std::vector<std::vector<long>> rightopr;
+    int i=1;
+    while(i < n_md + 1){
+        leftdyp.push_back(std::vector<long>());
+        leftopr.push_back(std::vector<long>());
+        rightdyp.push_back(std::vector<long>());
+        rightopr.push_back(std::vector<long>());
+        i++;
     }
-    dp_l[0].push_back(0);
-    op_l[0].push_back(0);
-    dp_r[0].push_back(0);
-    op_r[0].push_back(0);
-    for (int i = 1; i < n_md + 1; i++)
-    {
-        dp_l[i].push_back(i * lmd_d);
-        op_l[i].push_back(2);
-        dp_r[i].push_back(i * lmd_d);
-        op_r[i].push_back(2);
+    leftdyp[0].push_back(0);
+    leftopr[0].push_back(0);
+    rightdyp[0].push_back(0);
+    rightopr[0].push_back(0);
+   
+    i=1;
+    while(i < n_md +1){
+        leftdyp[i].push_back(i * lmd_d);
+        leftopr[i].push_back(2);
+        rightdyp[i].push_back(i * lmd_d);
+        rightopr[i].push_back(2);
+        i++;
     }
     float optimal_length = 10e8;
     float m_ub = 10e8;
     float minimum_cost = 10e8;
     float m = 1;
-    while (m <= m_ub)
-    {
-        dp_l[0].push_back(m * lmd_a);
-        op_l[0].push_back(1);
-        dp_r[0].push_back(m * lmd_a);
-        op_r[0].push_back(1);
-        for (int i = 1; i < n_md + 1; i++)
-        {
-            long s_m_l, s_m_r, t_i_l, t_i_r;
-            if (n % 2 == 1)
-            {
-                s_m_l = s_md - m * interval_t;
-                s_m_r = s_md + m * interval_t;
-                t_i_l = timestamps[(int)((n - 1) / 2) - i];
-                t_i_r = timestamps[(int)((n + 1) / 2) + (i - 1)];
-            }
-            else
-            {
-                s_m_l = s_md - (m - 0.5) * interval_t;
-                s_m_r = s_md + (m - 0.5) * interval_t;
-                t_i_l = timestamps[(int)(n / 2) - i];
-                t_i_r = timestamps[(int)(n / 2) + i - 1];
-            }
-            long move_res_l = dp_l[i - 1][m - 1] + abs(t_i_l - s_m_l);
-            long move_res_r = dp_r[i - 1][m - 1] + abs(t_i_r - s_m_r);
-            long add_res_l = dp_l[i][m - 1] + lmd_a;
-            long add_res_r = dp_r[i][m - 1] + lmd_a;
-            long del_res_l = dp_l[i - 1][m] + lmd_d;
-            long del_res_r = dp_r[i - 1][m] + lmd_d;
-            long min_res_l = std::min({move_res_l, add_res_l, del_res_l});
-            if (move_res_l == min_res_l)
-            {
-                dp_l[i].push_back(move_res_l);
-                op_l[i].push_back(0);
-            }
-            else if (add_res_l == min_res_l)
-            {
-                dp_l[i].push_back(add_res_l);
-                op_l[i].push_back(1);
-            }
-            else
-            {
-                dp_l[i].push_back(del_res_l);
-                op_l[i].push_back(2);
-            }
-            long min_res_r = std::min({move_res_r, add_res_r, del_res_r});
-            if (move_res_r == min_res_r)
-            {
-                dp_r[i].push_back(move_res_r);
-                op_r[i].push_back(0);
-            }
-            else if (add_res_r == min_res_r)
-            {
-                dp_r[i].push_back(add_res_r);
-                op_r[i].push_back(1);
-            }
-            else
-            {
-                dp_r[i].push_back(del_res_r);
-                op_r[i].push_back(2);
-            }
+
+    while (m <= m_ub) {
+    long mA = m * lmd_a;
+    leftdyp[0].push_back(mA);
+    leftopr[0].push_back(1);
+    rightdyp[0].push_back(mA);
+    rightopr[0].push_back(1);
+
+    int i=1;
+    while (i < n_md + 1){
+    //for (int i = 1; i < n_md + 1; i++) {
+        long s_m_l, s_m_r, t_i_l, t_i_r;
+        if (n % 2 != 1) {
+            s_m_l = s_md - (m - 0.5) * interval_t;
+            s_m_r = s_md + (m - 0.5) * interval_t;
+            t_i_l = timestamps[n / 2 - i];
+            t_i_r = timestamps[n / 2 + i - 1];
+        } else {
+            s_m_l = s_md - m * interval_t;
+            s_m_r = s_md + m * interval_t;
+            t_i_l = timestamps[(n - 1) / 2 - i];
+            t_i_r = timestamps[(n + 1) / 2 + (i - 1)];
         }
-        if (dp_r[n_md][m] + dp_l[n_md][m] < minimum_cost)
-        {
-            minimum_cost = dp_r[n_md][m] + dp_l[n_md][m];
-            optimal_length = m;
-            if (n % 2 == 1)
-                m_ub = ((int)(floor(minimum_cost / lmd_a + n)) - 1) / 2;
-            else
-                m_ub = ((int)(floor(minimum_cost / lmd_a + n))) / 2;
-        }
-        m += 1;
+
+        long move_res_l = leftdyp[i - 1][m - 1] + std::abs(t_i_l - s_m_l);
+        long move_res_r = rightdyp[i - 1][m - 1] + std::abs(t_i_r - s_m_r);
+        long add_res_l = leftdyp[i][m - 1] + lmd_a;
+        long add_res_r = rightdyp[i][m - 1] + lmd_a;
+        long del_res_l = leftdyp[i - 1][m] + lmd_d;
+        long del_res_r = rightdyp[i - 1][m] + lmd_d;
+
+        long min_res_l = std::min({move_res_l, add_res_l, del_res_l});
+        long min_res_r = std::min({move_res_r, add_res_r, del_res_r});
+
+        leftdyp[i].push_back((leftopr[i].emplace_back(move_res_l == min_res_l ? 0 : (add_res_l == min_res_l ? 1 : 2)), min_res_l));
+        rightdyp[i].push_back((rightopr[i].emplace_back(move_res_r == min_res_r ? 0 : (add_res_r == min_res_r ? 1 : 2)), min_res_r));
+        i++;
     }
+
+    long dpRnMdM = rightdyp[n_md][m];
+    long dpLnMdM = leftdyp[n_md][m];
+    if (dpRnMdM + dpLnMdM < minimum_cost) {
+        minimum_cost = dpRnMdM + dpLnMdM;
+        optimal_length = m;
+        int floorMinCostLaN = (int)(floor(minimum_cost / lmd_a + n));
+        m_ub = (n % 2 == 1) ? (floorMinCostLaN - 1) / 2 : floorMinCostLaN / 2;
+    }
+
+    m += 1;
+}
+
     long starting_point;
     // Data loss because of the type convertions
     if (n % 2 == 1)
@@ -519,26 +509,20 @@ MedianApproximation median_approximation(std::vector<long> timestamps, long lmd_
     median_approx.m = m;
     return median_approx;
 }
+MedianApproximationAll median_approximation_all(std::vector<long> timestamps, long lmd_a, long lmd_d, long interval_granularity) {
+    MedianApproximation median_approx = median_approximation(timestamps, lmd_a, lmd_d, interval_granularity);
+    StartPointApproximation start_point_approx = start_point_approximation(timestamps, lmd_a, lmd_d, interval_granularity);
 
-MedianApproximationAll median_approximation_all(std::vector<long> timestamps, long lmd_a, long lmd_d, long interval_granularity) // Calculate the approximated dataset
-{
-    MedianApproximation median_approx;
-    StartPointApproximation start_point_approx;
-    median_approx = median_approximation(timestamps, lmd_a, lmd_d, interval_granularity);
-    start_point_approx = start_point_approximation(timestamps, lmd_a, lmd_d, interval_granularity);
     MedianApproximationAll median_approx_all;
-    if (median_approx.minimum_cost <= start_point_approx.minimum_cost)
-    {
-        median_approx_all.interval_t = median_approx.interval_t;
-        median_approx_all.starting_point = median_approx.starting_point;
-        median_approx_all.m = median_approx.m;
+
+    if (median_approx.minimum_cost > start_point_approx.minimum_cost) {
+        std::tie(median_approx_all.interval_t, median_approx_all.starting_point, median_approx_all.m) =
+            std::tie(start_point_approx.interval_t, start_point_approx.starting_point, start_point_approx.optimal_length);
+    } else {
+        std::tie(median_approx_all.interval_t, median_approx_all.starting_point, median_approx_all.m) =
+            std::tie(median_approx.interval_t, median_approx.starting_point, median_approx.m);
     }
-    else
-    {
-        median_approx_all.interval_t = start_point_approx.interval_t;
-        median_approx_all.starting_point = start_point_approx.starting_point;
-        median_approx_all.m = start_point_approx.optimal_length;
-    }
+
     return median_approx_all;
 }
 
@@ -553,108 +537,78 @@ std::vector<long> equal_series_generate(long interval_t, long starting_point, lo
     return ret;
 }
 
-float calculate_cost(std::vector<long> repair, std::vector<long> truth, long lmd_a, long lmd_d) // Calculate Cost of the given two timestamp arrays
-{
-    lmd_a = 5;
-    lmd_d = 5;
+float calculate_cost(const std::vector<long>& repair, const std::vector<long>& truth, long lmd_a, long lmd_d) {
     int n = repair.size();
     int m = truth.size();
-    std::vector<std::vector<long long>> dp;
-    for (int i = 0; i <= n + 1; i++)
-    {
-        dp.push_back(std::vector<long long>());
+    std::vector<std::vector<long long>> dp(n + 1, std::vector<long long>(m + 1, 0));
+
+    for (int i = 1; i <= n; i++) {
+        dp[i][0] = i * lmd_d;
     }
-    dp[0].push_back(0);
-    lmd_a = lmd_a * (truth[1] - truth[0]);
-    lmd_d = lmd_d * (truth[1] - truth[0]);
-    for (int i = 1; i < n + 1; i++)
-    {
-        dp[i].push_back(i * lmd_d);
-    }
-    for (int j = 1; j < m + 1; j++)
-    {
-        dp[0].push_back(j * lmd_a);
-        for (int i = 1; i < n + 1; i++)
-        {
-            long long move_cost = dp[i - 1][j - 1] + abs(repair[i - 1] - truth[j - 1]);
+
+    for (int j = 1; j <= m; j++) {
+        dp[0][j] = j * lmd_a;
+        for (int i = 1; i <= n; i++) {
+            long long move_cost = dp[i - 1][j - 1] + std::abs(repair[i - 1] - truth[j - 1]);
             long long insert_cost = dp[i][j - 1] + lmd_a;
             long long deletion_cost = dp[i - 1][j] + lmd_d;
-            
-            if (move_cost <= insert_cost && move_cost <= deletion_cost)
-            {
-                dp[i].push_back(move_cost);
-            }
-            else if (insert_cost <= move_cost && insert_cost <= deletion_cost)
-            {
-                dp[i].push_back(insert_cost);
-            }
-            else
-            {
-                dp[i].push_back(deletion_cost);
-            }
+
+            dp[i][j] = std::min({move_cost, insert_cost, deletion_cost});
         }
     }
-    float overall_cost = (float)dp[n][m];
-    return overall_cost;
+
+    return static_cast<float>(dp[n][m]);
 }
 
 float calculate_rmse(std::vector<long> truth, std::vector<long> repair) // Calculate the Root Mean Squared Error
 {
-    int len = std::min(truth.size(), repair.size());
+    int length = std::min(truth.size(), repair.size());
     long long sum = 0;
-    for (int i = 0; i < len; i++)
-    {
-        sum += pow(abs(truth[i] - repair[i]), 2);
+    int i = 0;
+
+    while (i < length) {
+        sum += std::pow(std::abs(truth[i] - repair[i]), 2);
+        ++i;
     }
-    float res = sqrt(sum / len);
+
+    float res = std::sqrt(static_cast<float>(sum) / length);
     return res;
+    
 }
 
-float calculate_accuracy(std::vector<long> truth, std::vector<long> fault, std::vector<long> repair) // Calcuate the auccuracy of the model
-{
-    int min_len;
-    min_len = std::min({truth.size(), fault.size(), repair.size()});
-    float error = 0;
-    float cost = 0;
-    float inject = 0;
-    for (int i = 0; i < min_len; i++)
-    {
-        error += (long)abs(truth[i] - repair[i]);
-    }
-    for (int i = 0; i < min_len; i++)
-    {
-        cost += (long)abs(fault[i] - repair[i]);
-    }
-    for (int i = 0; i < min_len; i++)
-    {
-        inject += (long)abs(truth[i] - fault[i]);
-    }
-    if (error == 0)
-    {
-        return 1;
-    }
-    float ret = (1 - (error / (cost + inject)));
-    return ret;
-}
+float calculate_accuracy(const std::vector<long>& truth, const std::vector<long>& fault, const std::vector<long>& repair) {
+    const int min_len = std::min({truth.size(), fault.size(), repair.size()});
 
-float compute_metrics(std::vector<long> repair, std::vector<long> truth, std::vector<long> fault, std::string metric_name) // Calculate the chosen metric
-{
-    if (metric_name == "cost")
-    {
-        long lmd_a = 5 * (truth[1] - truth[0]);
-        long lmd_d = 5 * (truth[1] - truth[0]);
+    float error = 0.0f, cost = 0.0f, inject = 0.0f;
+
+    for (int i = 0; i < min_len; ++i) {
+        const long diff_truth_repair = std::abs(truth[i] - repair[i]);
+        const long diff_fault_repair = std::abs(fault[i] - repair[i]);
+        const long diff_truth_fault = std::abs(truth[i] - fault[i]);
+
+        error += static_cast<float>(diff_truth_repair);
+        cost += static_cast<float>(diff_fault_repair);
+        inject += static_cast<float>(diff_truth_fault);
+    }
+
+    return (error == 0.0f) ? 1.0f : (1.0f - (error / (cost + inject)));
+}
+float compute_metrics(const std::vector<long>& repair, const std::vector<long>& truth, const std::vector<long>& fault, const std::string& metric_name) {
+    long lmd_a = 5 * (truth[1] - truth[0]);
+    long lmd_d = 5 * (truth[1] - truth[0]);
+
+    if (metric_name == "rmse") {
+        return calculate_rmse(truth, repair);
+    } else if (metric_name == "cost") {
         return calculate_cost(repair, truth, lmd_a, lmd_d);
-    }
-    else if (metric_name == "accuracy")
-    {
+    } else if (metric_name == "accuracy") {
         return calculate_accuracy(truth, fault, repair);
     }
-    else if (metric_name == "rmse")
-    {
-        return calculate_rmse(truth, repair);
-    }
+
     return 0;
 }
+
+
 
 // Function to print metrics in table format
 void printMetric(std::string metricName, double resultExact, double resultApprox) {
@@ -669,14 +623,14 @@ int main() // Main Function
     while (true)
     {
         // Datasets
-        std::vector<std::string> files = {"energy", "air_quality", "pm", "syn_labdata"}; 
+        std::vector<std::string> files = {"energy", "air_quality", "pm"};  
         int user_input;
         int filecount = 1;
         std::cout << "\nBelow are the different datasets available, select the one you would like to execute:\n" << std::endl;
         for (int i = 0; i < files.size(); ++i) {
             std::cout << i + 1 << ". " << files[i] << std::endl;
         }
-        std::cout << "5. Exit from the terminal";
+        std::cout << "4. Exit from the terminal";
         std::cout << "\n\nEnter your choice Here: ";
         std::cin >> user_input;
         std::cout << std::endl;
@@ -685,7 +639,7 @@ int main() // Main Function
             std::cout << "Invalid input" << std::endl;
             continue;
         }
-        if(user_input == 5){
+        if(user_input == 4){
             exit(0);
         }
         
@@ -771,15 +725,13 @@ int main() // Main Function
                 line = "";
             }
         }
-        long source_values = 0;
-        long time_scale;
         Exact_Repair exact_rep;
         MedianApproximationAll median_approx_all;
 
-        // Using the provided error data, determine the precise repaired values.
+        // Find the exact repaired values using the error data that has been provided.
         exact_rep = exact_repair(original_seq, lmd_a, lmd_d, interval_granularity, start_point_granularity, bias_d, bias_s);
 
-        // Determine the estimated repaired values using the provided error data.
+        // Using the supplied error data, calculate the estimated repaired values.
         median_approx_all = median_approximation_all(original_seq, lmd_a, lmd_d, interval_granularity);
         
         //In order to produce the final data for evaluation
