@@ -13,5 +13,6 @@ Comparision : https://github.com/zaqthss/sigmod15-screen
 6. a.exe executable file is generated, rund the command "a.exe" on the Terminal / Command Prompt
 7. The menu driven program is displayed to the user for further inputs.
 
+
 -> Steps to run SCREEN
 1. Execute Screen.java file present in /SCREEN/src/cn/edu/thu/screen
