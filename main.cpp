@@ -360,7 +360,8 @@ StartPointApproximation start_point_approximation(std::vector<long> timestamps, 
     dp_matrix[0].push_back(m * lmd_a);
     op_matrix[0].push_back(1);
 
-    for (int i = 1; i < n + 1; i++) {
+    int i=1;
+    while(i < n + 1){
         long current_point = starting_point + (m - 1) * interval_t;
         long move_result = dp_matrix[i - 1][m - 1] + std::abs(timestamps[i - 1] - current_point);
         long add_result = dp_matrix[i][m - 1] + lmd_a;
@@ -382,6 +383,7 @@ StartPointApproximation start_point_approximation(std::vector<long> timestamps, 
         }
 
         dp_matrix[i].push_back((op_matrix[i].emplace_back(opCode), minResult));
+        i++;
     }
 
     long dpNnM = dp_matrix[n][m];
@@ -489,19 +491,20 @@ MedianApproximation median_approximation(std::vector<long> timestamps, long lmd_
 
     m += 1;
 }
+long starting_point;
 
-    long starting_point;
-    // Data loss because of the type convertions
-    if (n % 2 == 1)
-    {
-        starting_point = s_md - optimal_length * interval_t;
-        m = optimal_length * 2.0 + 1.0;
-    }
-    else
-    {
-        starting_point = s_md - (optimal_length - 0.5) * interval_t;
-        m = optimal_length * 2.0;
-    }
+constexpr double MULTIPLIER_ODD = 2.0;
+constexpr double OFFSET_ODD = 1.0;
+constexpr double OFFSET_EVEN = 0.5;
+
+if (n % 2 == 1) {
+    starting_point = s_md - optimal_length * interval_t;
+    m = optimal_length * MULTIPLIER_ODD + OFFSET_ODD;
+} else {
+    starting_point = s_md - (optimal_length - OFFSET_EVEN) * interval_t;
+    m = optimal_length * MULTIPLIER_ODD;
+}
+
     struct MedianApproximation median_approx;
     median_approx.minimum_cost = minimum_cost;
     median_approx.interval_t = interval_t;
